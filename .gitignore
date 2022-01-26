@@ -25,7 +25,14 @@ pip-delete-this-directory.txt
 *.pot
 
 # Data Base
-db.sqlite3
+*.db
+*.db3
+*.sqlite
+*.sqlite3
+
+# Logging
+Log/
+*.log
 
 # pyenv
 .python-version
