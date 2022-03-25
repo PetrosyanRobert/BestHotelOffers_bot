@@ -4,7 +4,9 @@
 """
 
 from subprocess import run
+
 from loguru import logger
+
 from config import EXECUTE_CMD
 
 

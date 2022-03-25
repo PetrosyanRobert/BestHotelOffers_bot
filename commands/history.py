@@ -2,6 +2,7 @@
 Модуль, описывающий команду бота history.
 Содержит функции и методы для этой команды.
 """
+
 from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 
