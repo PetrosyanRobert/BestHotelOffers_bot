@@ -10,6 +10,10 @@ emoji = {'low': '\U00002198',
          'hotel': '\U0001F3E8',
          'address': '\U0001F4CD',
          'price': '\U0001F4B0',
+         'total_price': '\U0001F9FE',
          'landmarks': '\U0001F3AF',
          'link': '\U0001F4CE',
-         'settings': '\U0001F527'}
+         'settings': '\U0001F527',
+         'left': '\U000021E6',
+         'right': '\U000021E8'
+         }

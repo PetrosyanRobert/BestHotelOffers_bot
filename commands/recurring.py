@@ -16,7 +16,7 @@ from config import API_HOST, API_KEY
 
 
 # Ссылки, которые используются для поиска города, отеля и фотографии
-city_url = 'https://hotels4.p.rapidapi.com/locations/search'
+city_url = 'https://hotels4.p.rapidapi.com/locations/v2/search'
 hotel_url = 'https://hotels4.p.rapidapi.com/properties/list'
 photo_url = 'https://hotels4.p.rapidapi.com/properties/get-hotel-photos'
 
@@ -42,6 +42,20 @@ def search_location(message: Message) -> dict[str, str]:
     querystring = {"query": message.text, "locale": "ru_RU"}
 
     response = requests.request("GET", city_url, headers=headers, params=querystring, timeout=10)
+
+    # TODO Добавить проверку статус кода 200 OK и получения JSON данных
+    # if response.status_code == 200:
+    #     pass
+    # else:
+    #     raise Exception()
+
+    # или же так:
+
+    # match response.status_code:
+    #     case 200:
+    #         pass
+    #     case ???
+
     data = json.loads(response.text)
 
     cities = {', '.join((city['name'], re.findall('(\\w+)[\n<]', city['caption'] + '\n')[-1])): city['destinationId']
@@ -75,6 +89,8 @@ def search_hotels(data: dict[str, int | str | None | list[int | float] | dict[st
                                      price_range=data['price_range'],
                                      dist_range=data['dist_range'],
                                      today=date.today()
+                                     # checkIn=data['date_in']
+                                     # checkOut=data['date_out']
                                      )
     else:
         hotels_data = searching_func(user_city_id=data['city_id'],
@@ -84,6 +100,8 @@ def search_hotels(data: dict[str, int | str | None | list[int | float] | dict[st
                                      hotel_url=hotel_url,
                                      headers=headers,
                                      today=date.today()
+                                     # checkIn=data['date_in']
+                                     # checkOut=data['date_out']
                                      )
 
     return hotels_data
@@ -107,6 +125,8 @@ def search_photos(data: dict[str, int | str | None | list[int | float] | dict[st
     querystring = {"id": "{}".format(hotel_id)}
 
     response = requests.request("GET", photo_url, headers=headers, params=querystring, timeout=10)
+
+    # TODO Добавить проверку статус кода 200 OK и получения JSON данных
 
     photo_data = json.loads(response.text)
     photos_address = photo_data["hotelImages"][:data['photos_count']]

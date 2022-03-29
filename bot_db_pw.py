@@ -19,38 +19,8 @@ from config import DATABASE
 db = SqliteExtDatabase(DATABASE)
 
 
-searching_functions = {
-    'lowprice': hilowprice.lowprice,
-    'highprice': hilowprice.highprice
-}
-
-
-class DateTimeField(Field):
-    """
-    Сабкласс класса DateTimeField модуля peewee,
-    наследуется от класса Field.
-
-    Необходим для переопределения метода db_value так, чтобы значения
-    времени в формате timestamp конвертировались в стандартный формат
-    YYYY-MM-DD HH:MM:SS перед записью в БД.
-    """
-
-    def db_value(self, value: Any) -> Any:
-        """
-        Переопределение метода db_value у поля DateTimeField
-
-        Args:
-            value (Any): Принимает значение даты и времени в произвольном формате
-
-        Returns (Any): Конвертированное либо нет значение даты и времени
-        """
-
-        if isinstance(value, int):
-            date_value = datetime.fromtimestamp(value)
-            result = date_value.strftime('%Y-%m-%d %H:%M:%S')
-        else:
-            result = value
-        return result
+searching_functions = {'lowprice': hilowprice.lowprice,
+                       'highprice': hilowprice.highprice}
 
 
 class ModelBase(Model):
@@ -62,31 +32,39 @@ class ModelBase(Model):
     для дочерних классов.
     """
 
-    id = AutoField(primary_key=True)
+    id = AutoField()
 
     class Meta:
         database = db
 
 
 class User(ModelBase):
-    user_id = IntegerField(unique=True)
+    """
+    Модель, описывающая таблицу БД "users".
+    Данная таблица необходима для регистрации новых пользователей бота,
+    а также для сохранения выбранных ими параметров и настроек.
+    """
+
+    user_id = IntegerField(null=True, constraints=[SQL("UNIQUE ON CONFLICT IGNORE")])
     first_name = CharField(max_length=64, null=True)
     last_name = CharField(max_length=64, null=True)
-    join_date = DateTimeField(default=datetime.now())
-    cities = JSONField(null=True, default=None)
-    city_id = IntegerField(null=True, default=None)
-    city_name = CharField(max_length=50, null=True, default=None)
-    hotels_count = IntegerField(null=True, default=None)
-    needed_photo = BooleanField(null=True, default=None)
-    photos_count = IntegerField(null=True, default=None)
-    price_range = CharField(max_length=30, null=True, default=None)
-    dist_range = CharField(max_length=10, null=True, default=None)
-    language = CharField(max_length=8, null=True, default='ru_RU')
-    lang_flag = BooleanField(null=True, default=False)
-    currency = CharField(max_length=6, null=True, default='RUB')
-    cur_flag = BooleanField(null=True, default=False)
-    advanced_question_flag = BooleanField(null=True, default=False)
-    searching_function = CharField(max_length=22, null=True, default=None)
+    join_date = DateTimeField(constraints=[SQL("DEFAULT (datetime('now'))")])
+    cities = JSONField(null=True, constraints=[SQL("DEFAULT None")])
+    city_id = IntegerField(null=True, constraints=[SQL("DEFAULT None")])
+    city_name = CharField(max_length=50, null=True, constraints=[SQL("DEFAULT None")])
+    date_in = DateField(null=True, constraints=[SQL("DEFAULT None")])
+    date_out = DateField(null=True, constraints=[SQL("DEFAULT None")])
+    hotels_count = IntegerField(null=True, constraints=[SQL("DEFAULT None")])
+    needed_photo = BooleanField(null=True, constraints=[SQL("DEFAULT False")])
+    photos_count = IntegerField(null=True, constraints=[SQL("DEFAULT None")])
+    price_range = CharField(max_length=30, null=True, constraints=[SQL("DEFAULT None")])
+    dist_range = CharField(max_length=10, null=True, constraints=[SQL("DEFAULT None")])
+    language = CharField(max_length=8, null=True, constraints=[SQL("DEFAULT ('ru_RU')")])
+    lang_flag = BooleanField(null=True, constraints=[SQL("DEFAULT False")])
+    currency = CharField(max_length=6, null=True, constraints=[SQL("DEFAULT ('RUB')")])
+    cur_flag = BooleanField(null=True, constraints=[SQL("DEFAULT False")])
+    advanced_question_flag = BooleanField(null=True, constraints=[SQL("DEFAULT False")])
+    searching_function = CharField(max_length=22, null=True, constraints=[SQL("DEFAULT None")])
 
     class Meta:
         table_name = 'users'
@@ -108,12 +86,17 @@ class User(ModelBase):
 
 
 class History(ModelBase):
-    date = DateTimeField(default=datetime.now())
+    """
+    Модель, описывающая таблицу БД "user_messages" для сохранения
+    истории команд, сообщений и запросов пользователя.
+    """
+
+    date = DateTimeField(constraints=[SQL("DEFAULT (datetime('now'))")])
     user_id = ForeignKeyField(model=User, field='user_id')
-    commands = CharField(max_length=15, null=True)
-    messages = CharField(max_length=50, null=True)
-    requests = TextField(null=True)
-    answers = TextField(null=True)
+    commands = CharField(max_length=15, null=True, constraints=[SQL("DEFAULT None")])
+    messages = CharField(max_length=50, null=True, constraints=[SQL("DEFAULT None")])
+    requests = TextField(null=True, constraints=[SQL("DEFAULT None")])
+    answers = TextField(null=True, constraints=[SQL("DEFAULT None")])
 
     class Meta:
         table_name = 'user_messages'
@@ -141,6 +124,25 @@ def init_db(force: bool = False) -> None:
         db.create_tables([User, History])
 
     logger.info('БД инициализирована')
+
+
+def convert_data(value: Any) -> Any:
+    """
+    Функция конвертирует значение времени в формате timestamp в
+    стандартный формат YYYY-MM-DD HH:MM:SS перед записью в БД.
+
+    Args:
+        value (Any): Принимает значение даты и времени в произвольном формате
+
+    Returns (Any): Конвертированное либо нет значение даты и времени
+    """
+
+    if isinstance(value, int):
+        date_value = datetime.fromtimestamp(value)
+        result = date_value.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        result = value
+    return result
 
 
 @logger.catch
@@ -581,6 +583,8 @@ if __name__ == '__main__':
     if user_args:
         init_db(force=user_args)
         logger.info('Таблицы БД были полностью удалены и созданы заново')
+    else:
+        init_db()
 
     # TODO удалить (тесты для наладки)
     # set_city_id(user_id=309881753, user_city='Ереван, Армения')

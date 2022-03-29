@@ -32,7 +32,7 @@ def req_period(bot: TeleBot, message: Message) -> None:
         ]
     )
 
-    bot.send_message(message.from_user.id, 'Выберите период, за которую надо выводить историю:', reply_markup=markup)
+    bot.send_message(message.chat.id, 'Выберите период, за которую надо выводить историю:', reply_markup=markup)
 
 
 def get_history(bot: TeleBot, call: CallbackQuery) -> None:
