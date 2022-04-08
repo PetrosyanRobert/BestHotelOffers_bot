@@ -1,6 +1,5 @@
 __all__ = [
-    'lowprice',
-    'highprice',
+    'hilowprice',
     'bestdeal',
     'history'
 ]

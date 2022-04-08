@@ -2,6 +2,7 @@
 Модуль, описывающий команду бота history.
 Содержит функции и методы для этой команды.
 """
+
 from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 
@@ -31,7 +32,7 @@ def req_period(bot: TeleBot, message: Message) -> None:
         ]
     )
 
-    bot.send_message(message.from_user.id, 'Выберите период, за которую надо выводить историю:', reply_markup=markup)
+    bot.send_message(message.chat.id, 'Выберите период, за которую надо выводить историю:', reply_markup=markup)
 
 
 def get_history(bot: TeleBot, call: CallbackQuery) -> None:
