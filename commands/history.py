@@ -3,74 +3,29 @@
 Содержит функции и методы для этой команды.
 """
 
-from telebot import TeleBot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, Message, CallbackQuery
 
-import bot_db
-
-
-def req_period(bot: TeleBot, message: Message) -> None:
+def get_hotels_for_history(hotels_data: tuple[dict[str, dict[str, str | None]] | None, str | None],
+                           user_data: dict[str, int | str | None | list[int | float] |
+                                           dict[str, str | list[str]]]) -> tuple[str, list[str]]:
     """
-    Функция-обработчик команды /history.
-    Создаёт и выводит клавиатуру для выбора периода истории
+    Функция, которая формирует и возвращает список найденных отелей
+    для сохранения в БД, согласно введённой команде пользователя.
 
     Args:
-        bot (TeleBot): Принимает объект
-        message (Message): Принимает объект-сообщение от Telegram
+        hotels_data (tuple): кортеж, содержащий словарь с найденными отелями и ссылки на них
+        user_data (dict): данные пользователя из БД в виде словаря
+
+    Returns (tuple): кортеж из введённой команды и списка найденных отелей
     """
 
-    markup = InlineKeyboardMarkup(
-        keyboard=[
-            [
-                InlineKeyboardButton(text='День', callback_data='history_day'),
-                InlineKeyboardButton(text='Неделя', callback_data='history_week'),
-                InlineKeyboardButton(text='Месяц', callback_data='history_month')
-            ],
-            [
-                InlineKeyboardButton(text='Вся история', callback_data='history_all')
-            ]
-        ]
-    )
+    result, query_url = hotels_data
+    found_hotels = list()
 
-    bot.send_message(message.chat.id, 'Выберите период, за которую надо выводить историю:', reply_markup=markup)
+    for hotel_name, hotel_data in result.items():
+        found_hotels.append("<a href='{url}'>{name}</a>".format(name=hotel_name,
+                                                                url='https://hotels.com/ho' + str(hotel_data['id'])))
 
+    command_data = "<a href='{query_url}'>{city_name}</a>".format(query_url=query_url,
+                                                                  city_name=user_data['city_name'])
 
-def get_history(bot: TeleBot, call: CallbackQuery) -> None:
-    """
-    Функция вывода истории из БД по заданному периоду
-
-    Args:
-        bot (TeleBot): Принимает объект TeleBot
-        call (CallbackQuery): Принимает объект-CallbackQuery от Telegram
-    """
-
-    # TODO придумать вывод порциями и дописать функцию
-    if call.data == "history_day":
-        bot.answer_callback_query(call.id, "Выбран период: День", show_alert=True)
-        histories = bot_db.get_history(user_id=call.from_user.id, within='day')
-        for record in histories:
-            output_text = ("""
-Дата: <b>{dt}</b>
-Команда: <b>{cmd}</b>
-Сообщение: <b>{ms}</b>
-Запрос: <b>{req}</b>
-    """).format(
-                dt=record[0],
-                cmd=record[1],
-                ms=record[2],
-                req=record[3]
-            )
-            bot.send_message(chat_id=call.message.chat.id, text=output_text, parse_mode='html')
-    elif call.data == "history_week":
-        bot.answer_callback_query(call.id, "Выбран период: Неделя", show_alert=True)
-    elif call.data == "history_month":
-        bot.answer_callback_query(call.id, "Выбран период: Месяц", show_alert=True)
-    elif call.data == "history_all":
-        bot.answer_callback_query(call.id, "Выбран период: Вся история", show_alert=True)
-
-    # Удаляем клавиатуру
-    bot.edit_message_text('Принято!',
-                          chat_id=call.message.chat.id,
-                          message_id=call.message.message_id,
-                          reply_markup=None
-                          )
+    return command_data, found_hotels

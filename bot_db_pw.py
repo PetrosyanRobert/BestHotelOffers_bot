@@ -4,7 +4,7 @@
 """
 
 import argparse
-from datetime import datetime
+import datetime as dt
 from typing import Any
 
 from loguru import logger
@@ -12,6 +12,7 @@ from playhouse.sqlite_ext import *
 from telebot.types import Message, InputMediaPhoto
 
 from commands import recurring, hilowprice
+from commands.history import get_hotels_for_history
 from config import DATABASE
 
 
@@ -84,6 +85,22 @@ class User(ModelBase):
 
         return pk_id
 
+    @classmethod
+    def reset_to_default_search_data(cls, user_id: int) -> None:
+        """
+        Метод, который сбрасывает выбранные пользователем данные
+        для поиска отелей в БД к значениям по умолчанию.
+
+        Args:
+            user_id (int): Принимает id пользователя из его команды или сообщения
+        """
+
+        with db:
+            User(id=cls.get_pk_id(user_id), cities=None, city_id=None, city_name=None, date_in=None, date_out=None,
+                 hotels_count=None, needed_photo=False, photos_count=None, price_range=None, dist_range=None,
+                 language='ru_RU', lang_flag=False, currency='RUB', cur_flag=False, advanced_question_flag=False,
+                 searching_function=None).save()
+
 
 class History(ModelBase):
     """
@@ -94,12 +111,23 @@ class History(ModelBase):
     date = DateTimeField(constraints=[SQL("DEFAULT (datetime('now'))")])
     user_id = ForeignKeyField(model=User, field='user_id')
     commands = CharField(max_length=15, null=True, constraints=[SQL("DEFAULT None")])
-    messages = CharField(max_length=50, null=True, constraints=[SQL("DEFAULT None")])
     requests = TextField(null=True, constraints=[SQL("DEFAULT None")])
     answers = TextField(null=True, constraints=[SQL("DEFAULT None")])
 
     class Meta:
         table_name = 'user_messages'
+
+    @classmethod
+    def delete_history_data(cls, user_id: int) -> None:
+        """
+        Метод, который удаляет все записи пользователя из данной таблицы БД
+
+        Args:
+            user_id (int): Принимает id пользователя из его команды или сообщения
+        """
+
+        with db:
+            History.delete().where(History.user_id == user_id).execute()
 
 
 @logger.catch
@@ -138,10 +166,10 @@ def convert_data(value: Any) -> Any:
     """
 
     if isinstance(value, int):
-        date_value = datetime.fromtimestamp(value)
+        date_value = dt.datetime.fromtimestamp(value)
         result = date_value.strftime('%Y-%m-%d %H:%M:%S')
     else:
-        result = value
+        result = value.strftime('%Y-%m-%d %H:%M:%S')
     return result
 
 
@@ -203,10 +231,7 @@ def get_cities(message: Message) -> dict[str, str]:
 
     # Добавляем словарь городов в БД
     with db:
-        # TODO проверить на автоматическую сериализацию JSON
         User(id=User.get_pk_id(message.from_user.id), cities=cities).save()
-        # User.update(cities=json.dumps(cities, indent=4, ensure_ascii=False)
-        #             ).where(User.user_id == message.from_user.id).execute()
 
     return cities
 
@@ -240,7 +265,8 @@ def get_city_id(user_id: int) -> str:
     Returns (str): id искомого пользователем города
     """
 
-    return User.get(User.user_id == user_id).city_id
+    with db:
+        return User.get(User.user_id == user_id).city_id
 
 
 @logger.catch
@@ -254,7 +280,8 @@ def get_advanced_question_flag(user_id: int) -> bool | None:
     Returns (bool | None): значение флага на наличие дополнительных вопросов
     """
 
-    return User.get(User.user_id == user_id).advanced_question_flag
+    with db:
+        return User.get(User.user_id == user_id).advanced_question_flag
 
 
 @logger.catch
@@ -271,12 +298,23 @@ def get_hotels(user_id: int) -> tuple[dict[str, dict[str, str | None]] | None, s
                         либо ничего.
     """
 
-    user_data = User.select().where(User.user_id == user_id).dicts().get()
+    with db:
+        user_data = User.select().where(User.user_id == user_id).dicts().get()
+
     searching_func = searching_functions[user_data['searching_function']]
     hotels_data = recurring.search_hotels(data=user_data, searching_func=searching_func)
 
     if hotels_data[0]:
-        # TODO добавить запись в историю
+        command_data, found_hotels = get_hotels_for_history(hotels_data=hotels_data, user_data=user_data)
+        with db:
+            History(
+                user_id=user_id,
+                commands=user_data['searching_function'],
+                requests=command_data,
+                answers=found_hotels,
+                date=convert_data(dt.datetime.now())
+            ).save(force_insert=True)
+
         return hotels_data
 
     return None, None
@@ -322,7 +360,8 @@ def set_hotels_count(user_id: int, user_hotels_count: int) -> None:
     if user_hotels_count > 10:
         raise ValueError('ValueError: user_hotels_count must be <= 10')
     else:
-        User(id=User.get_pk_id(user_id), hotels_count=user_hotels_count).save()
+        with db:
+            User(id=User.get_pk_id(user_id), hotels_count=user_hotels_count).save()
 
 
 @logger.catch
@@ -336,7 +375,8 @@ def get_hotels_count(user_id: int) -> int | None:
     Returns (int | None): кол-во запрашиваемых пользователем отелей
     """
 
-    return User.get(User.user_id == user_id).hotels_count
+    with db:
+        return User.get(User.user_id == user_id).hotels_count
 
 
 @logger.catch
@@ -351,7 +391,8 @@ def set_needed_photo(user_id: int, user_needed_photo: bool | None) -> None:
                                             на вывод фотографий отелей
     """
 
-    User(id=User.get_pk_id(user_id), needed_photo=user_needed_photo).save()
+    with db:
+        User(id=User.get_pk_id(user_id), needed_photo=user_needed_photo).save()
 
 
 @logger.catch
@@ -367,7 +408,8 @@ def get_needed_photo(user_id: int) -> bool | None:
                             вывода фотографий отелей.
     """
 
-    return User.get(User.user_id == user_id).needed_photo
+    with db:
+        return User.get(User.user_id == user_id).needed_photo
 
 
 @logger.catch
@@ -383,7 +425,8 @@ def set_photos_count(user_id: int, user_photos_count: int) -> None:
     if user_photos_count > 10:
         raise ValueError('ValueError: user_photos_count must be <= 10')
     else:
-        User(id=User.get_pk_id(user_id), photos_count=user_photos_count).save()
+        with db:
+            User(id=User.get_pk_id(user_id), photos_count=user_photos_count).save()
 
 
 @logger.catch
@@ -397,7 +440,8 @@ def get_photos_count(user_id: int) -> int | None:
     Returns (int | None): кол-во фотографий для каждого отеля.
     """
 
-    return User.get(User.user_id == user_id).photos_count
+    with db:
+        return User.get(User.user_id == user_id).photos_count
 
 
 @logger.catch
@@ -414,7 +458,9 @@ def get_photos(user_id: int, hotel_id: int, text: str) -> list[InputMediaPhoto]:
     Returns (list): Возвращает список фотографий отеля
     """
 
-    user_data = User.select().where(User.user_id == user_id).dicts().get()
+    with db:
+        user_data = User.select().where(User.user_id == user_id).dicts().get()
+
     photos = recurring.search_photos(data=user_data, hotel_id=hotel_id)
     hotels_photos = list()
 
@@ -441,7 +487,8 @@ def set_language(user_id: int, user_language: str) -> None:
         user_language (int): Принимает введённый пользователем язык
     """
 
-    User(id=User.get_pk_id(user_id), language=user_language, lang_flag=True).save()
+    with db:
+        User(id=User.get_pk_id(user_id), language=user_language, lang_flag=True).save()
 
 
 @logger.catch
@@ -455,7 +502,8 @@ def get_language(user_id: int) -> str:
     Returns (str): язык пользователя
     """
 
-    return User.get(User.user_id == user_id).language
+    with db:
+        return User.get(User.user_id == user_id).language
 
 
 @logger.catch
@@ -468,7 +516,8 @@ def set_currency(user_id: int, user_currency: str) -> None:
         user_currency (int): Принимает введённую пользователем валюту
     """
 
-    User(id=User.get_pk_id(user_id), currency=user_currency, cur_flag=True).save()
+    with db:
+        User(id=User.get_pk_id(user_id), currency=user_currency, cur_flag=True).save()
 
 
 @logger.catch
@@ -482,7 +531,8 @@ def get_currency(user_id: int) -> str:
     Returns (str): валюту пользователя
     """
 
-    return User.get(User.user_id == user_id).currency
+    with db:
+        return User.get(User.user_id == user_id).currency
 
 
 @logger.catch
@@ -497,7 +547,8 @@ def add_user(user_id: int, first_name: str, last_name: str, date: int) -> None:
         date (int): Принимает дату команды или сообщения в формате Timestamp
     """
 
-    User(user_id=user_id, first_name=first_name, last_name=last_name, join_date=date).save()
+    with db:
+        User(user_id=user_id, first_name=first_name, last_name=last_name, join_date=date).save()
 
 
 @logger.catch
@@ -512,59 +563,37 @@ def add_message(user_id: int,  date: int, command: str = '', message: str = '') 
         date (int): Принимает дату команды или сообщения в формате Timestamp
     """
 
-    User(user_id=user_id, commands=command, messages=message, date=date).save(force_insert=True)
+    with db:
+        User(user_id=user_id, commands=command, messages=message, date=date).save(force_insert=True)
 
 
-# TODO продумать взаимодействие с Историей (что хранить и что выводить)
-# @logger.catch
-# def get_history(connect: Connection, user_id: int, within: str = 'all', limit: int = 10) -> list:
-#     """
-#     Функция, которая получает список команд и сообщений, введённых пользователем в БД.
-#
-#     Args:
-#         connect (Connection): Принимает объект Connection, который по сути
-#                                 является менеджером контекста, обеспечивающим
-#                                 подключение к файлу БД SQLite
-#
-#         user_id (int): Принимает id пользователя из его команды или сообщения
-#
-#         within (str): Принимает значения day(день), week(неделя), month(месяц),
-#                         за которое нужно показывать историю (по умолчанию: all)
-#
-#         limit (int): Ограничение кол-ва выводимых строк (по умолчанию: 10)
-#
-#
-#     Returns (list): Возвращает список команд, сообщений и запросов пользователя
-#     """
-#
-#     cursor = connect.cursor()
-#
-#     if within == 'day':
-#         result = cursor.execute("""
-#             SELECT date, commands, messages, requests FROM user_messages
-#             WHERE user_id = ? AND date BETWEEN datetime('now', 'start of day') AND datetime('now', 'localtime')
-#             ORDER BY date LIMIT ?
-#             """, (user_id, limit))
-#     elif within == 'week':
-#         result = cursor.execute("""
-#             SELECT date, commands, messages, requests FROM user_messages
-#             WHERE user_id = ? AND date BETWEEN datetime('now', '-6 days') AND datetime('now', 'localtime')
-#             ORDER BY date LIMIT ?
-#             """, (user_id, limit))
-#     elif within == 'month':
-#         result = cursor.execute("""
-#             SELECT date, commands, messages, requests FROM user_messages
-#             WHERE user_id = ? AND date BETWEEN datetime('now', 'start of month') AND datetime('now', 'localtime')
-#             ORDER BY date LIMIT ?
-#             """, (user_id, limit))
-#     else:
-#         result = cursor.execute("""
-#             SELECT date, commands, messages, requests
-#             FROM user_messages WHERE user_id = ? ORDER BY id DESC LIMIT ?
-#             """, (user_id, limit))
-#
-#     return result.fetchall()
-#
+@logger.catch
+def get_history(user_id: int, within: str) -> Any:
+    """
+    Функция, которая получает историю команд и запросов пользователя из БД.
+
+    Args:
+        user_id (int): Принимает id пользователя из его команды или сообщения
+
+        within (str): Принимает значения last(последний), day(день), week(неделя),
+                        за которые нужно запросить историю
+
+    Returns (Model): Возвращает историю команд и запросов пользователя
+    """
+
+    if within == 'last':
+        with db:
+            result = History.select().where(History.user_id == user_id).order_by(History.date.desc()).limit(1).dicts()
+    elif within == 'day':
+        day_ago = dt.date.today() - dt.timedelta(days=1)
+        with db:
+            result = History.select().where((History.user_id == user_id) & (History.date >= day_ago)).dicts()
+    elif within == 'week':
+        day_ago = dt.date.today() - dt.timedelta(days=7)
+        with db:
+            result = History.select().where((History.user_id == user_id) & (History.date >= day_ago)).dicts()
+
+    return result
 
 
 if __name__ == '__main__':
@@ -593,3 +622,13 @@ if __name__ == '__main__':
     # get_advanced_question_flag(user_id=309881753)
     # get_hotels(user_id=309881753)
     # set_hotels_count(user_id=309881753, user_hotels_count=5)
+
+    # with db:
+    #     User(
+    #         user_id=316776650,
+    #         first_name='First_N',
+    #         last_name='Last_N',
+    #         date=convert_data(value=dt.datetime.now())
+    #     ).save(force_insert=True)
+
+    # History.delete_history_data(user_id=309881753)

@@ -10,8 +10,9 @@ import requests
 
 
 @logger.catch
-def lowprice(user_city_id: str, language: str, currency: str, hotels_value: int, hotel_url: str,
-             headers: dict[str, str], today: str) -> tuple[dict[str, dict[str, str | None]] | None, str | None]:
+def lowprice(user_city_id: str, language: str, currency: str, hotels_count: int, hotel_url: str,
+             headers: dict[str, str], check_in: str, check_out: str) -> tuple[dict[str, dict[str, str | None]] | None,
+                                                                              str | None]:
     """
     Функция, которая формирует и отправляет HTTP-запрос вариантов самых
     дешёвых отелей к Hotels API и возвращает либо кортеж, либо ничего.
@@ -20,23 +21,24 @@ def lowprice(user_city_id: str, language: str, currency: str, hotels_value: int,
         user_city_id (str): id города
         language (str): язык пользователя
         currency (str): валюта пользователя
-        hotels_value (int): кол-во отелей
+        hotels_count (int): кол-во отелей
         hotel_url (str): ссылка на отель
         headers (dict): необходимые заголовки
-        today (str): актуальная дата
+        check_in (str): дата заезда
+        check_out (str): дата выезда
 
     Returns:
         кортеж, содержащий словарь с найденными отелями
     """
 
-    querystring = {"destinationId": user_city_id, "pageNumber": "1", "pageSize": str(hotels_value),
-                   "checkIn": today, "checkOut": today, "adults1": "1", "sortOrder": "PRICE",
+    querystring = {"destinationId": user_city_id, "pageNumber": "1", "pageSize": str(hotels_count),
+                   "checkIn": check_in, "checkOut": check_out, "adults1": "1", "sortOrder": "PRICE",
                    "locale": "{}".format(language), "currency": currency}
 
     response = requests.request("GET", hotel_url, headers=headers, params=querystring, timeout=10)
 
     url = f"""
-https://hotels.com/search.do?destination-id={user_city_id}&q-check-in={today}&q-check-out={today}
+https://hotels.com/search.do?destination-id={user_city_id}&q-check-in={check_in}&q-check-out={check_out}
 &q-rooms=1&q-room-0-adults=2&q-room-0-children=0&sort-order={querystring["sortOrder"]}"""
 
     data = json.loads(response.text)
@@ -47,8 +49,8 @@ https://hotels.com/search.do?destination-id={user_city_id}&q-check-in={today}&q-
 
     hotels_glossary = {
         hotel['name']: {
-            'id': hotel.get('id', '-'), 'name': hotel.get('name', '-'), 'address': hotel.get('address', '-'),
-            'landmarks': hotel.get('landmarks', '-'), 'price': hotel['ratePlan']['price'].get('current')
+            'id': hotel['id'], 'name': hotel['name'], 'stars': hotel['starRating'], 'address': hotel['address'],
+            'landmarks': hotel['landmarks'], 'price': hotel['ratePlan']['price'].get('current')
             if hotel.get('ratePlan', None)
             else '-', 'coordinate': '+'.join(map(str, hotel['coordinate'].values()))
         } for hotel in hotels_catalog
@@ -58,8 +60,9 @@ https://hotels.com/search.do?destination-id={user_city_id}&q-check-in={today}&q-
 
 
 @logger.catch
-def highprice(user_city_id: str, language: str, currency: str, hotels_value: int, hotel_url: str,
-              headers: dict[str, str], today: str) -> tuple[dict[str, dict[str, str | None]] | None, str | None]:
+def highprice(user_city_id: str, language: str, currency: str, hotels_count: int, hotel_url: str,
+              headers: dict[str, str], check_in: str, check_out: str) -> tuple[dict[str, dict[str, str | None]] | None,
+                                                                               str | None]:
     """
     Функция, которая формирует и отправляет HTTP-запрос вариантов самых
     дорогих отелей к Hotels API и возвращает либо кортеж, либо ничего.
@@ -68,23 +71,24 @@ def highprice(user_city_id: str, language: str, currency: str, hotels_value: int
         user_city_id (str): id города
         language (str): язык пользователя
         currency (str): валюта пользователя
-        hotels_value (int): кол-во отелей
+        hotels_count (int): кол-во отелей
         hotel_url (str): ссылка на отель
         headers (dict): необходимые заголовки
-        today (str): актуальная дата
+        check_in (str): дата заезда
+        check_out (str): дата выезда
 
     Returns:
         кортеж, содержащий словарь с найденными отелями
     """
 
-    querystring = {"destinationId": user_city_id, "pageNumber": "1", "pageSize": str(hotels_value),
-                   "checkIn": today, "checkOut": today, "adults1": "1",
+    querystring = {"destinationId": user_city_id, "pageNumber": "1", "pageSize": str(hotels_count),
+                   "checkIn": check_in, "checkOut": check_out, "adults1": "1",
                    "sortOrder": "PRICE_HIGHEST_FIRST", "locale": "{}".format(language), "currency": currency}
 
     response = requests.request("GET", hotel_url, headers=headers, params=querystring, timeout=10)
 
     url = f"""
-https://hotels.com/search.do?destination-id={user_city_id}&q-check-in={today}&q-check-out={today}
+https://hotels.com/search.do?destination-id={user_city_id}&q-check-in={check_in}&q-check-out={check_out}
 &q-rooms=1&q-room-0-adults=2&q-room-0-children=0&sort-order={querystring["sortOrder"]}"""
 
     data = json.loads(response.text)
@@ -95,8 +99,8 @@ https://hotels.com/search.do?destination-id={user_city_id}&q-check-in={today}&q-
 
     hotels_glossary = {
         hotel['name']: {
-            'id': hotel['id'], 'name': hotel['name'], 'address': hotel['address'], 'landmarks': hotel['landmarks'],
-            'price': hotel['ratePlan']['price'].get('current')
+            'id': hotel['id'], 'name': hotel['name'], 'stars': hotel['starRating'], 'address': hotel['address'],
+            'landmarks': hotel['landmarks'], 'price': hotel['ratePlan']['price'].get('current')
             if hotel.get('ratePlan', None)
             else '-', 'coordinate': '+'.join(map(str, hotel['coordinate'].values()))
         } for hotel in hotels_catalog
