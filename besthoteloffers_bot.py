@@ -2,17 +2,17 @@
 Главный скрипт бота besthoteloffers_bot.py
 Содержит основную логику работы бота.
 """
-# import re
+
 from datetime import date
 
 import telebot
 from telebot.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
 from bot_db_pw import *
-# from commands import history
 from commands.calendar import MyStyleCalendar, STEPS
 from config import BOT_TOKEN
 from settings import emoji, star_rating
+
 
 logger.add('Log/debug.log', encoding='utf-8')
 
@@ -92,6 +92,8 @@ def command_help(message: Message) -> None:
 
 /lowprice - топ самых дешёвых отелей
 /highprice - топ самых дорогих отелей
+/bestdeal - лучшие отели по твоим запросам
+
 /history - вывод истории поиска отелей
 /reset - сброс параметров и удаление истории поиска""")
 
@@ -137,7 +139,7 @@ def search_commands(message: Message) -> None:
     """
 
     match message.text:
-        case '/lowprice' | '/highprice':
+        case '/lowprice' | '/highprice' | '/bestdeal':
             User.reset_to_default_search_data(user_id=message.from_user.id)
             set_searching_function(
                 user_id=message.from_user.id,
@@ -145,10 +147,7 @@ def search_commands(message: Message) -> None:
             )
             bot.send_message(chat_id=message.chat.id, text='В какой город планируем выезд?')
             bot.register_next_step_handler(message=message, callback=search_city)
-        case '/bestdeal':
-            User.reset_to_default_search_data(user_id=message.from_user.id)
-            # TODO дописать функцию и удалить заглушку
-            bot.send_message(message.chat.id, 'Извини, но данная команда пока в разработке.')
+
         case '/history':
             markup = InlineKeyboardMarkup(keyboard=[
                 [InlineKeyboardButton(text='Последний поиск', callback_data='history_last')],
@@ -178,7 +177,9 @@ def search_city(message: Message) -> None:
         bot.edit_message_text(
             chat_id=message.chat.id,
             message_id=temp.id,
-            text='К сожалению, я ничего не нашёл. Может повторим?\n/help',
+            text=("""
+К сожалению, я ничего подходящего не нашёл {sad}...
+Может попробуешь ещё раз?  /help""").format(sad=emoji['sadness']),
             parse_mode='HTML'
         )
     else:
@@ -207,19 +208,73 @@ def city_handler(call: CallbackQuery) -> None:
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.id)
 
     if get_advanced_question_flag(user_id=call.message.chat.id):
-        pass  # TODO Дописать функцию выбора диапазона цен
+        ask_for_price_range(call.message)
     else:
         ask_for_date_in(call.message)
 
 
 @logger.catch
-def ask_for_date_in(message: Message) -> None:
+def ask_for_price_range(message: Message) -> None:
     """
-    Функция создаёт календарь для даты заезда в отель и запрашивает год даты.
+    Функция запрашивает диапазон цен у пользователя
 
     Args:
         message (Message): Принимает объект-сообщение от Telegram
     """
+
+    bot.send_message(chat_id=message.chat.id,
+                     text="""
+Уточни диапазон цен в ({cur}):
+(Например: "от 1000 до 2000", "1000-2000", "1000 2000")""".format(cur=get_currency(user_id=message.chat.id)),
+                     parse_mode='HTML')
+
+    bot.register_next_step_handler(message=message, callback=ask_for_distance_range)
+
+
+@logger.catch
+def ask_for_distance_range(message: Message) -> None:
+    """
+    Функция обрабатывает введённый пользователем диапазон цен и
+    запрашивает максимальное расстояние, на котором находится отель от центра.
+
+    Args:
+        message (Message): Принимает объект-сообщение от Telegram
+    """
+
+    price_range = list(set(map(int, map(lambda string: string.replace(',', '.'),
+                                        re.findall(r'\d+[.,\d+]?\d?', message.text)))))
+    if len(price_range) != 2:
+        bot.send_message(chat_id=message.chat.id, text='Ошибка диапазона! Попробуй ещё раз: /help')
+        raise ValueError('Ошибка диапазона!')
+    else:
+        set_price_range(user_id=message.chat.id, price_range=price_range)
+        bot.send_message(chat_id=message.chat.id,
+                         text="""
+Как далеко (в км) от центра должен находится отель?:
+(Например: "от 1 до 3", "1-3", "1 3")""",
+                         parse_mode='HTML')
+
+        bot.register_next_step_handler(message=message, callback=ask_for_date_in)
+
+
+@logger.catch
+def ask_for_date_in(message: Message) -> None:
+    """
+    Функция обрабатывает введённое пользователем расстояние до центра,
+    создаёт календарь для даты заезда в отель и запрашивает год даты.
+
+    Args:
+        message (Message): Принимает объект-сообщение от Telegram
+    """
+
+    if get_advanced_question_flag(user_id=message.chat.id):
+        distance_range = list(set(map(float, map(lambda string: string.replace(',', '.'),
+                                                 re.findall(r'\d+[.,\d+]?\d?', message.text)))))
+        if len(distance_range) != 2:
+            bot.send_message(chat_id=message.chat.id, text='Ошибка расстояния! Попробуй ещё раз: /help')
+            raise ValueError('Ошибка расстояния!')
+        else:
+            set_distance_range(user_id=message.chat.id, dist_range=distance_range)
 
     # Сбрасываем даты заезда и выезда в БД
     with db:
@@ -409,7 +464,7 @@ def resulting_function(message: Message) -> None:
 
     if hotels_glossary:
         bot.edit_message_text(chat_id=message.chat.id,
-                              message_id=temp.id, text='Я нашёл для тебя следующие варианты...')
+                              message_id=temp.id, text='Ура! Кажется, я кое-что нашёл для тебя. Вывожу...')
         for index, hotels in enumerate(hotels_glossary.values()):
             if index + 1 > get_hotels_count(user_id=message.chat.id):
                 break
@@ -461,15 +516,25 @@ def resulting_function(message: Message) -> None:
                                  )
         bot.send_message(chat_id=message.chat.id,
                          text=("""
-Не нашли подходящий вариант?\nЕщё больше отелей по вашему запросу\\: [смотреть]({link})
-\nХочешь продолжить? /help""").format(link=search_link),
+Не подошли эти варианты?  Почемууу? {ask}
+
+Ладно, шучу\\. {smile}
+Ещё больше отелей по твоему запросу [смотри здесь]({link})
+
+Хочешь заново?  /help""").format(ask=emoji['ask'],
+                                 smile=emoji['smile'],
+                                 link=search_link),
                          parse_mode='MarkdownV2',
                          disable_web_page_preview=True
                          )
     else:
         bot.edit_message_text(chat_id=message.chat.id,
                               message_id=temp.id,
-                              text='По вашему запросу ничего не найдено...\n/help')
+                              text=("""
+К сожалению, я ничего подходящего не нашёл {sad}...
+Может попробуешь ещё раз?  /help""").format(sad=emoji['sadness']),
+                              parse_mode='HTML'
+                              )
 
 
 @bot.message_handler(content_types=['text'])
@@ -544,13 +609,13 @@ def show_history(message: Message, text: str, within: str) -> None:
                              parse_mode='HTML', disable_web_page_preview=True)
         else:
             bot.send_message(chat_id=message.chat.id,
-                             text='Хочешь продолжить? /help',
+                             text='Хочешь продолжить?  /help',
                              parse_mode='HTML',
                              disable_web_page_preview=True
                              )
     else:
         bot.send_message(chat_id=message.chat.id,
-                         text='За данный период поисков не было.\n\nХочешь продолжить? /help')
+                         text='За данный период поисков не было.\n\nХочешь продолжить?  /help')
 
 
 logger.info('Бот в работе')

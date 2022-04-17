@@ -11,7 +11,7 @@ from loguru import logger
 from playhouse.sqlite_ext import *
 from telebot.types import Message, InputMediaPhoto
 
-from commands import recurring, hilowprice
+from commands import recurring, hilowprice, bestdeal
 from commands.history import get_hotels_for_history
 from config import DATABASE
 
@@ -21,7 +21,9 @@ db = SqliteExtDatabase(DATABASE)
 
 
 searching_functions = {'lowprice': hilowprice.lowprice,
-                       'highprice': hilowprice.highprice}
+                       'highprice': hilowprice.highprice,
+                       'bestdeal': bestdeal.bestdeal
+                       }
 
 
 class ModelBase(Model):
@@ -207,7 +209,6 @@ def set_searching_function(user_id: int, user_searching_function: str) -> None:
 
     with db:
         if user_searching_function == 'bestdeal':
-            # TODO флаг не меняется в БД, проверить
             User(id=User.get_pk_id(user_id), advanced_question_flag=True).save()
         else:
             User(id=User.get_pk_id(user_id), advanced_question_flag=False).save()
@@ -216,7 +217,7 @@ def set_searching_function(user_id: int, user_searching_function: str) -> None:
 
 
 @logger.catch
-def get_cities(message: Message) -> dict[str, str]:
+def get_cities(message: Message) -> dict:
     """
     Данная функция запрашивает словарь с вариантами городов у функции
     search_location, записывает его в БД и возвращает его.
@@ -285,7 +286,65 @@ def get_advanced_question_flag(user_id: int) -> bool | None:
 
 
 @logger.catch
-def get_hotels(user_id: int) -> tuple[dict[str, dict[str, str | None]] | None, str | None]:
+def set_price_range(user_id: int, price_range: list) -> None:
+    """
+    Сеттер для установки диапазона цен пользователя.
+
+    Args:
+        user_id (int): Принимает id пользователя из его команды или сообщения
+        price_range (list): Принимает ценовой диапазон пользователя
+    """
+
+    with db:
+        User(id=User.get_pk_id(user_id), price_range=price_range).save()
+
+
+@logger.catch
+def get_price_range(user_id: int) -> list:
+    """
+    Геттер для получения диапазона цен пользователя.
+
+    Args:
+        user_id (int): Принимает id пользователя из его команды или сообщения
+
+    Returns (list): ценовой диапазон, заданный пользователем
+    """
+
+    with db:
+        return User.get(User.user_id == user_id).price_range
+
+
+@logger.catch
+def set_distance_range(user_id: int, dist_range: list) -> None:
+    """
+    Сеттер для установки диапазона расстояний отеля от центра.
+
+    Args:
+        user_id (int): Принимает id пользователя из его команды или сообщения
+        dist_range (list): Принимает диапазон расстояний от пользователя
+    """
+
+    with db:
+        User(id=User.get_pk_id(user_id), dist_range=dist_range).save()
+
+
+@logger.catch
+def get_distance_range(user_id: int) -> list:
+    """
+    Геттер для получения диапазона расстояний отеля от центра.
+
+    Args:
+        user_id (int): Принимает id пользователя из его команды или сообщения
+
+    Returns (list): диапазон расстояний, заданный пользователем
+    """
+
+    with db:
+        return User.get(User.user_id == user_id).dist_range
+
+
+@logger.catch
+def get_hotels(user_id: int) -> tuple:
     """
     Данная функция запрашивает словарь с вариантами отелей у функции
     search_hotels, записывает его в БД и возвращает либо кортеж,
@@ -320,7 +379,7 @@ def get_hotels(user_id: int) -> tuple[dict[str, dict[str, str | None]] | None, s
     return None, None
 
 
-def get_address(hotels: dict[str, Any]) -> str:
+def get_address(hotels: dict) -> str:
     """
     Геттер для получения обработанного адреса отеля.
 
@@ -333,7 +392,7 @@ def get_address(hotels: dict[str, Any]) -> str:
     return ', '.join(list(filter(lambda x: isinstance(x, str) and len(x) > 2, list(hotels['address'].values()))))
 
 
-def get_landmarks(hotels: dict[str, Any]) -> str:
+def get_landmarks(hotels: dict) -> str:
     """
     Геттер для получения обработанных ориентиров отеля.
 
@@ -445,7 +504,7 @@ def get_photos_count(user_id: int) -> int | None:
 
 
 @logger.catch
-def get_photos(user_id: int, hotel_id: int, text: str) -> list[InputMediaPhoto]:
+def get_photos(user_id: int, hotel_id: int, text: str) -> list:
     """
     Данная функция запрашивает список url-адресов фотографий отеля
     у функции search_photos и возвращает список фотографий отеля.

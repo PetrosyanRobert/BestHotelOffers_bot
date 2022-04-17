@@ -1,12 +1,10 @@
 """
-Модуль, описывающий команду бота history.
-Содержит функции и методы для этой команды.
+Модуль, описывающий команду бота /history.
+Содержит функции для этой команды.
 """
 
 
-def get_hotels_for_history(hotels_data: tuple[dict[str, dict[str, str | None]] | None, str | None],
-                           user_data: dict[str, int | str | None | list[int | float] |
-                                           dict[str, str | list[str]]]) -> tuple[str, list[str]]:
+def get_hotels_for_history(hotels_data: tuple, user_data: dict) -> tuple:
     """
     Функция, которая формирует и возвращает список найденных отелей
     для сохранения в БД, согласно введённой команде пользователя.

@@ -18,7 +18,10 @@ emoji = {'low': '\U00002198',
          'link': '\U0001F517',
          'settings': '\U0001F527',
          'left': '\U000021E6',
-         'right': '\U000021E8'
+         'right': '\U000021E8',
+         'sadness': '\U0001F614',
+         'ask': '\U0001F61F',
+         'smile': '\U0001F609'
          }
 
 
