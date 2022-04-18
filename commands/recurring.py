@@ -20,6 +20,12 @@ city_url = 'https://hotels4.p.rapidapi.com/locations/v2/search'
 hotel_url = 'https://hotels4.p.rapidapi.com/properties/list'
 photo_url = 'https://hotels4.p.rapidapi.com/properties/get-hotel-photos'
 
+# TODO не забыть после тестов удалить ссылки на url Postman Mock server
+# city_url = 'https://71e385c7-4d1e-4c1d-8fa7-09b16043b9ab.mock.pstmn.io/locations/v2/search'
+# hotel_url = 'https://71e385c7-4d1e-4c1d-8fa7-09b16043b9ab.mock.pstmn.io/properties/list'
+# photo_url = 'https://71e385c7-4d1e-4c1d-8fa7-09b16043b9ab.mock.pstmn.io/properties/get-hotel-photos'
+
+
 # Заголовки запроса при обращении к rapidapi.com
 headers = {'x-rapidapi-host': API_HOST,
            'x-rapidapi-key': API_KEY
@@ -27,7 +33,7 @@ headers = {'x-rapidapi-host': API_HOST,
 
 
 @logger.catch
-def search_location(message: Message) -> dict[str, str]:
+def search_location(message: Message) -> dict:
     """
     Функция, которая формирует и отправляет запрос на поиск городов
     к Hotels API и возвращает словарь с вариантами городов.
@@ -65,8 +71,7 @@ def search_location(message: Message) -> dict[str, str]:
 
 
 @logger.catch
-def search_hotels(data: dict[str, int | str | None | list[int | float] | dict[str, str | list[str]]],
-                  searching_func: Callable) -> tuple[dict[str, dict[str, str | None]] | None, str | None]:
+def search_hotels(data: dict, searching_func: Callable) -> tuple:
     """
     Функция, которая формирует и отправляет запрос на поиск отелей
     к Hotels API и возвращает кортеж, содержащий словарь с найденными отелями.
@@ -83,33 +88,30 @@ def search_hotels(data: dict[str, int | str | None | list[int | float] | dict[st
         hotels_data = searching_func(user_city_id=data['city_id'],
                                      language=data['language'],
                                      currency=data['currency'],
-                                     hotels_value=data['hotels_count'],
+                                     hotels_count=data['hotels_count'],
                                      hotel_url=hotel_url,
                                      headers=headers,
                                      price_range=data['price_range'],
                                      dist_range=data['dist_range'],
-                                     today=date.today()
-                                     # checkIn=data['date_in']
-                                     # checkOut=data['date_out']
+                                     check_in=data['date_in'],
+                                     check_out=data['date_out']
                                      )
     else:
         hotels_data = searching_func(user_city_id=data['city_id'],
                                      language=data['language'],
                                      currency=data['currency'],
-                                     hotels_value=data['hotels_count'],
+                                     hotels_count=data['hotels_count'],
                                      hotel_url=hotel_url,
                                      headers=headers,
-                                     today=date.today()
-                                     # checkIn=data['date_in']
-                                     # checkOut=data['date_out']
+                                     check_in=data['date_in'],
+                                     check_out=data['date_out']
                                      )
 
     return hotels_data
 
 
 @logger.catch
-def search_photos(data: dict[str, int | str | None | list[int | float] | dict[str, str | list[str]]],
-                  hotel_id: int) -> list[dict[str, str | Any]]:
+def search_photos(data: dict, hotel_id: int) -> list:
     """
     Функция, которая формирует и отправляет запрос на поиск фотографий
     отелей к Hotels API и возвращает список url-адресов фотографий отеля.
