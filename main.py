@@ -22,6 +22,7 @@ def main() -> None:
         run(EXECUTE_CMD, shell=True, check=True)
     except KeyboardInterrupt:
         logger.error('Работа бота была прервана принудительно, нажатием на [Ctrl] + C')
+        exit()
 
 
 if __name__ == '__main__':

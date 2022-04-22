@@ -4,9 +4,12 @@
 
 import os
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
-load_dotenv()
+if not find_dotenv():
+    exit('Ошибка! Файл ".env" не найден.')
+else:
+    load_dotenv()
 
 EXECUTE_CMD = os.getenv('EXECUTE_CMD')
 BOT_TOKEN = os.getenv('BOT_TOKEN')

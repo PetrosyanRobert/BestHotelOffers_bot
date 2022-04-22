@@ -5,6 +5,7 @@
 """
 
 import json
+import re
 
 from loguru import logger
 import requests
@@ -36,27 +37,35 @@ def lowprice(**ud) -> tuple:
                    "locale": "{}".format(ud['language']), "currency": ud['currency']
                    }
 
-    response = requests.request("GET", ud['hotel_url'], headers=ud['headers'], params=querystring, timeout=10)
-
     url = (f"""https://hotels.com/search.do?destination-id={ud['user_city_id']}&q-check-in={ud['check_in']}
 &q-check-out={ud['check_out']}&q-rooms=1&q-room-0-adults=2&q-room-0-children=0&sort-order={querystring["sortOrder"]}""")
 
-    data = json.loads(response.text)
-    hotels_catalog = data['data']['body']['searchResults']['results']
+    response = requests.request("GET", ud['hotel_url'], headers=ud['headers'], params=querystring, timeout=10)
 
-    if not hotels_catalog:
-        return None, None
+    if response.status_code == requests.codes.ok:
+        check = re.search(r'(?<=,)\"results\".+?(?=,\"pagination)', response.text)
 
-    hotels_glossary = {
-        hotel['name']: {
-            'id': hotel['id'], 'name': hotel['name'], 'stars': hotel['starRating'], 'address': hotel['address'],
-            'landmarks': hotel['landmarks'], 'price': hotel['ratePlan']['price'].get('current')
-            if hotel.get('ratePlan', None)
-            else '-', 'coordinate': '+'.join(map(str, hotel['coordinate'].values()))
-        } for hotel in hotels_catalog
-    }
+        if check:
+            data = json.loads(response.text)
+            hotels_catalog = data['data']['body']['searchResults']['results']
 
-    return hotels_glossary, url
+            if not hotels_catalog:
+                return None, None
+
+            hotels_glossary = {
+                hotel['name']: {
+                    'id': hotel['id'], 'name': hotel['name'], 'stars': hotel['starRating'], 'address': hotel['address'],
+                    'landmarks': hotel['landmarks'], 'price': hotel['ratePlan']['price'].get('current')
+                    if hotel.get('ratePlan', None)
+                    else '-', 'coordinate': '+'.join(map(str, hotel['coordinate'].values()))
+                } for hotel in hotels_catalog
+            }
+
+            return hotels_glossary, url
+        else:
+            raise ValueError('Ошибка сервера! В JSON ключи не обнаружены.')
+    else:
+        raise ValueError('Ошибка сервера! Статус код не "200 ОК".')
 
 
 @logger.catch
@@ -85,24 +94,32 @@ def highprice(**ud) -> tuple:
                    "sortOrder": "PRICE_HIGHEST_FIRST", "locale": "{}".format(ud['language']), "currency": ud['currency']
                    }
 
-    response = requests.request("GET", ud['hotel_url'], headers=ud['headers'], params=querystring, timeout=10)
-
     url = (f"""https://hotels.com/search.do?destination-id={ud['user_city_id']}&q-check-in={ud['check_in']}
 &q-check-out={ud['check_out']}&q-rooms=1&q-room-0-adults=2&q-room-0-children=0&sort-order={querystring["sortOrder"]}""")
 
-    data = json.loads(response.text)
-    hotels_catalog = data['data']['body']['searchResults']['results']
+    response = requests.request("GET", ud['hotel_url'], headers=ud['headers'], params=querystring, timeout=10)
 
-    if not hotels_catalog:
-        return None, None
+    if response.status_code == requests.codes.ok:
+        check = re.search(r'(?<=,)\"results\".+?(?=,\"pagination)', response.text)
 
-    hotels_glossary = {
-        hotel['name']: {
-            'id': hotel['id'], 'name': hotel['name'], 'stars': hotel['starRating'], 'address': hotel['address'],
-            'landmarks': hotel['landmarks'], 'price': hotel['ratePlan']['price'].get('current')
-            if hotel.get('ratePlan', None)
-            else '-', 'coordinate': '+'.join(map(str, hotel['coordinate'].values()))
-        } for hotel in hotels_catalog
-    }
+        if check:
+            data = json.loads(response.text)
+            hotels_catalog = data['data']['body']['searchResults']['results']
 
-    return hotels_glossary, url
+            if not hotels_catalog:
+                return None, None
+
+            hotels_glossary = {
+                hotel['name']: {
+                    'id': hotel['id'], 'name': hotel['name'], 'stars': hotel['starRating'], 'address': hotel['address'],
+                    'landmarks': hotel['landmarks'], 'price': hotel['ratePlan']['price'].get('current')
+                    if hotel.get('ratePlan', None)
+                    else '-', 'coordinate': '+'.join(map(str, hotel['coordinate'].values()))
+                } for hotel in hotels_catalog
+            }
+
+            return hotels_glossary, url
+        else:
+            raise ValueError('Ошибка сервера! В JSON ключи не обнаружены.')
+    else:
+        raise ValueError('Ошибка сервера! Статус код не "200 ОК".')

@@ -36,7 +36,31 @@ def star_rating(rating: str) -> str:
     Returns (str): строка из звёзд
     """
 
-    if int(rating) >= 5:
-        return emoji['star_b'] * 5
+    if rating:
+        if int(rating) >= 5:
+            return emoji['star_b'] * 5
+        else:
+            return emoji['star_b'] * int(rating) + emoji['star_w'] * (5 - int(rating))
     else:
-        return emoji['star_b'] * int(rating) + emoji['star_w'] * (5 - int(rating))
+        return 'не указан'
+
+
+def night_declension(days: int) -> str:
+    """
+    Функция, которая склоняет слово "ночь".
+    Возвращает слово "ночь" с окончанием, соответствующим кол-ву дней.
+
+    Args:
+        days (int): Принимает кол-во дней
+
+    Returns (str): Возвращает слово "ночь" с соответствующим окончанием
+    """
+
+    if days % 100 in range(11, 20):
+        return 'ночей'
+    elif days % 10 in range(5, 10) or days % 10 == 0:
+        return 'ночей'
+    elif days % 10 in range(2, 5):
+        return 'ночи'
+    elif days % 10 == 1:
+        return 'ночь'

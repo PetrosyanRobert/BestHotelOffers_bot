@@ -416,11 +416,8 @@ def set_hotels_count(user_id: int, user_hotels_count: int) -> None:
         user_hotels_count (int): Принимает введённое пользователем кол-во отелей
     """
 
-    if user_hotels_count > 10:
-        raise ValueError('ValueError: user_hotels_count must be <= 10')
-    else:
-        with db:
-            User(id=User.get_pk_id(user_id), hotels_count=user_hotels_count).save()
+    with db:
+        User(id=User.get_pk_id(user_id), hotels_count=user_hotels_count).save()
 
 
 @logger.catch
@@ -673,21 +670,3 @@ if __name__ == '__main__':
         logger.info('Таблицы БД были полностью удалены и созданы заново')
     else:
         init_db()
-
-    # TODO удалить (тесты для наладки)
-    # set_city_id(user_id=309881753, user_city='Ереван, Армения')
-    # set_city_id(user_id=316776650, user_city='Кентрон, Армения')
-    # set_searching_function(user_id=309881753, user_searching_function='bestdeal')
-    # get_advanced_question_flag(user_id=309881753)
-    # get_hotels(user_id=309881753)
-    # set_hotels_count(user_id=309881753, user_hotels_count=5)
-
-    # with db:
-    #     User(
-    #         user_id=316776650,
-    #         first_name='First_N',
-    #         last_name='Last_N',
-    #         date=convert_data(value=dt.datetime.now())
-    #     ).save(force_insert=True)
-
-    # History.delete_history_data(user_id=309881753)

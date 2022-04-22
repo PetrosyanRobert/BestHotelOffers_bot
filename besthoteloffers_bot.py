@@ -11,8 +11,7 @@ from telebot.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from bot_db_pw import *
 from commands.calendar import MyStyleCalendar, STEPS
 from config import BOT_TOKEN
-from settings import emoji, star_rating
-
+from settings import emoji, star_rating, night_declension
 
 logger.add('Log/debug.log', encoding='utf-8')
 
@@ -57,6 +56,8 @@ def command_start(message: Message) -> None:
 Похоже, ты решил начать заново?
 Что ж, давай начнём.""")
 
+    logger.info('Пользователь: {user_id}  | Команда: "/start"'.format(user_id=message.from_user.id))
+
     if not user_exists(user_id=message.from_user.id):
         # Добавляем пользователя в БД
         with db:
@@ -97,6 +98,8 @@ def command_help(message: Message) -> None:
 /history - вывод истории поиска отелей
 /reset - сброс параметров и удаление истории поиска""")
 
+    logger.info('Пользователь: {user_id}  | Команда: "/help"'.format(user_id=message.from_user.id))
+
     bot.send_message(chat_id=message.chat.id, text=help_text, parse_mode='HTML')
 
 
@@ -111,6 +114,8 @@ def command_reset(message: Message) -> None:
         message (Message): Принимает объект-сообщение от Telegram
     """
 
+    logger.info('Пользователь: {user_id}  | Команда: "/reset"'.format(user_id=message.from_user.id))
+
     History.delete_history_data(user_id=message.from_user.id)
     User.reset_to_default_search_data(user_id=message.from_user.id)
 
@@ -124,6 +129,7 @@ def command_reset(message: Message) -> None:
 @bot.message_handler(commands=['settings'])
 @logger.catch
 def command_settings(message: Message) -> None:
+    logger.info('Пользователь: {user_id}  | Команда: "/settings"'.format(user_id=message.from_user.id))
     bot.send_message(message.chat.id, 'Извини, но данная команда пока в разработке.')
     # TODO дописать функцию
 
@@ -137,6 +143,9 @@ def search_commands(message: Message) -> None:
     Args:
         message (Message): Принимает объект-сообщение от Telegram
     """
+
+    logger.info('Пользователь: {user_id}  | Команда: "{cmd}"'.format(user_id=message.from_user.id,
+                                                                     cmd=message.text))
 
     match message.text:
         case '/lowprice' | '/highprice' | '/bestdeal':
@@ -169,6 +178,9 @@ def search_city(message: Message) -> None:
         message (Message): Принимает объект-сообщение от Telegram
     """
 
+    logger.info('Пользователь: {user_id}  | Сообщение: "{msg}"'.format(user_id=message.chat.id,
+                                                                       msg=message.text))
+
     temp = bot.send_message(chat_id=message.chat.id, text='Выполняю поиск...', parse_mode='HTML')
     cities = get_cities(message=message)
     keyboard = InlineKeyboardMarkup()
@@ -179,6 +191,8 @@ def search_city(message: Message) -> None:
             message_id=temp.id,
             text=("""
 К сожалению, я ничего подходящего не нашёл {sad}...
+(Российские города всё ещё недоступны)
+
 Может попробуешь ещё раз?  /help""").format(sad=emoji['sadness']),
             parse_mode='HTML'
         )
@@ -204,6 +218,9 @@ def city_handler(call: CallbackQuery) -> None:
         call (CallbackQuery): Принимает объект-CallbackQuery от Telegram
     """
 
+    logger.info('Пользователь: {user_id}  | Кнопка: "{btn}"'.format(user_id=call.message.chat.id,
+                                                                    btn=call.data))
+
     set_city_id(user_id=call.message.chat.id, user_city=call.data)
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.id)
 
@@ -224,8 +241,11 @@ def ask_for_price_range(message: Message) -> None:
 
     bot.send_message(chat_id=message.chat.id,
                      text="""
-Уточни диапазон цен в ({cur}):
-(Например: "от 1000 до 2000", "1000-2000", "1000 2000")""".format(cur=get_currency(user_id=message.chat.id)),
+Сколько денег у тебя в кармане? Шучу {smile}.
+
+Укажи диапазон стоимости номера за ночь в ({cur}):
+(Например: "от 1000 до 50000", "1000-50000", "1000 50000")""".format(cur=get_currency(user_id=message.chat.id),
+                                                                     smile=emoji['smile']),
                      parse_mode='HTML')
 
     bot.register_next_step_handler(message=message, callback=ask_for_distance_range)
@@ -241,10 +261,13 @@ def ask_for_distance_range(message: Message) -> None:
         message (Message): Принимает объект-сообщение от Telegram
     """
 
+    logger.info('Пользователь: {user_id}  | Сообщение: "{msg}"'.format(user_id=message.chat.id,
+                                                                       msg=message.text))
+
     price_range = list(set(map(int, map(lambda string: string.replace(',', '.'),
                                         re.findall(r'\d+[.,\d+]?\d?', message.text)))))
     if len(price_range) != 2:
-        bot.send_message(chat_id=message.chat.id, text='Ошибка диапазона! Попробуй ещё раз: /help')
+        bot.send_message(chat_id=message.chat.id, text='Ошибка диапазона!\nМожет попробуешь заново?  /help')
         raise ValueError('Ошибка диапазона!')
     else:
         set_price_range(user_id=message.chat.id, price_range=price_range)
@@ -268,10 +291,13 @@ def ask_for_date_in(message: Message) -> None:
     """
 
     if get_advanced_question_flag(user_id=message.chat.id):
+        logger.info('Пользователь: {user_id}  | Сообщение: "{msg}"'.format(user_id=message.chat.id,
+                                                                           msg=message.text))
+
         distance_range = list(set(map(float, map(lambda string: string.replace(',', '.'),
                                                  re.findall(r'\d+[.,\d+]?\d?', message.text)))))
         if len(distance_range) != 2:
-            bot.send_message(chat_id=message.chat.id, text='Ошибка расстояния! Попробуй ещё раз: /help')
+            bot.send_message(chat_id=message.chat.id, text='Ошибка расстояния!\nМожет попробуешь заново?  /help')
             raise ValueError('Ошибка расстояния!')
         else:
             set_distance_range(user_id=message.chat.id, dist_range=distance_range)
@@ -326,6 +352,8 @@ def set_date_in(call: CallbackQuery) -> None:
                               message_id=call.message.message_id,
                               reply_markup=key)
     elif result:
+        logger.info('Пользователь: {user_id}  | Дата заезда: "{date}"'.format(user_id=call.message.chat.id,
+                                                                              date=result))
         bot.edit_message_text(text=f'Выбрана дата заезда:  {result}',
                               chat_id=call.message.chat.id,
                               message_id=call.message.message_id
@@ -362,6 +390,8 @@ def set_date_out(call: CallbackQuery) -> None:
                               message_id=call.message.message_id,
                               reply_markup=key)
     elif result:
+        logger.info('Пользователь: {user_id}  | Дата выезда: "{date}"'.format(user_id=call.message.chat.id,
+                                                                              date=result))
         bot.edit_message_text(text=f'Выбрана дата выезда:  {result}',
                               chat_id=call.message.chat.id,
                               message_id=call.message.message_id
@@ -383,7 +413,7 @@ def ask_for_hotels_count(message: Message) -> None:
         message (Message): Принимает объект-сообщение от Telegram
     """
 
-    bot.send_message(chat_id=message.chat.id, text='Сколько отелей вывести? (не более 10)')
+    bot.send_message(chat_id=message.chat.id, text='Сколько отелей вывести?\n(в цифрах, но не более 10)')
     bot.register_next_step_handler(message=message, callback=photo_needed)
 
 
@@ -396,9 +426,23 @@ def photo_needed(message: Message) -> None:
         message (Message): Принимает объект-сообщение от Telegram
     """
 
-    set_hotels_count(user_id=message.chat.id, user_hotels_count=abs(int(message.text)))
+    logger.info('Пользователь: {user_id}  | Сообщение: "{msg}"'.format(user_id=message.chat.id,
+                                                                       msg=message.text))
+
+    if not message.text.isalpha():
+        user_hotels_count = abs(int(re.search(r'\d+', message.text).group()))
+        if user_hotels_count > 10:
+            bot.send_message(chat_id=message.chat.id, text='Ошибка! Кол-во больше 10!\nМожет попробуешь заново?  /help')
+            raise ValueError('Ошибка! Пользователь ввёл цифру больше 10.')
+        else:
+            set_hotels_count(user_id=message.chat.id, user_hotels_count=user_hotels_count)
+    else:
+        bot.send_message(chat_id=message.chat.id, text='Ошибка! Не вижу цифр!\nМожет попробуешь заново?  /help')
+        raise ValueError('Ошибка кол-ва отелей! Пользователь не ввёл цифры.')
+
     keyboard = InlineKeyboardMarkup()
     [keyboard.add(InlineKeyboardButton(x, callback_data=x)) for x in ['Да', 'Нет']]
+
     bot.send_message(chat_id=message.chat.id, text='Фотографии отелей нужны?', reply_markup=keyboard)
 
 
@@ -413,6 +457,9 @@ def set_photo_needed(call: CallbackQuery) -> None:
     Args:
         call (CallbackQuery): Принимает объект-CallbackQuery от Telegram
     """
+
+    logger.info('Пользователь: {user_id}  | Кнопка: "{btn}"'.format(user_id=call.message.chat.id,
+                                                                    btn=call.data))
 
     bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.id)
     if call.data == 'Да':
@@ -451,7 +498,14 @@ def resulting_function(message: Message) -> None:
     """
 
     if get_needed_photo(user_id=message.chat.id):
-        set_photos_count(user_id=message.chat.id, user_photos_count=abs(int(message.text)))
+        logger.info('Пользователь: {user_id}  | Сообщение: "{msg}"'.format(user_id=message.chat.id,
+                                                                           msg=message.text))
+        if not message.text.isalpha():
+            set_photos_count(user_id=message.chat.id,
+                             user_photos_count=abs(int(re.search(r'\d+', message.text).group())))
+        else:
+            bot.send_message(chat_id=message.chat.id, text='Ошибка! Не вижу цифр!\nМожет попробуешь заново?  /help')
+            raise ValueError('Ошибка кол-ва фото! Пользователь не ввёл цифры.')
 
     temp = bot.send_message(chat_id=message.chat.id, text='Выполняю поиск...')
 
@@ -464,7 +518,7 @@ def resulting_function(message: Message) -> None:
 
     if hotels_glossary:
         bot.edit_message_text(chat_id=message.chat.id,
-                              message_id=temp.id, text='Ура! Кажется, я кое-что нашёл для тебя. Вывожу...')
+                              message_id=temp.id, text='УРА!!!\nКажется, я кое-что нашёл для тебя. Вывожу...')
         for index, hotels in enumerate(hotels_glossary.values()):
             if index + 1 > get_hotels_count(user_id=message.chat.id):
                 break
@@ -475,14 +529,15 @@ def resulting_function(message: Message) -> None:
 \n\n{e_address} <a href='{address_link}'>{address}</a>
 \n\n{e_dist} Ближайшие ориентиры: <b>{distance}</b>
 \n\n{e_price} Цена за ночь:  <b>{price}</b>
-\n{e_total} Общая сумма за <b>{total_days}</b> дней:  <b>{total_price} {curr_value}</b>
+\n{e_total} Общая сумма за <b>{total_days}</b> {night}:  <b>{total_price} {curr_value}</b>
 \n\n{e_link} <a href='{link}'>Подробнее на hotels.com</a>""".format(
                 name=hotels['name'],
-                stars=star_rating(hotels['stars']),
+                stars=star_rating(rating=hotels['stars']),
                 address=get_address(hotels=hotels),
                 distance=get_landmarks(hotels=hotels),
                 price=hotels['price'].replace(',', ''),
                 total_days=abs(total_days.days),
+                night=night_declension(days=abs(total_days.days)),
                 total_price=int(cost) * abs(total_days.days),
                 curr_value=curr_value,
                 e_hotel=emoji['hotel'],
@@ -532,7 +587,7 @@ def resulting_function(message: Message) -> None:
                               message_id=temp.id,
                               text=("""
 К сожалению, я ничего подходящего не нашёл {sad}...
-Может попробуешь ещё раз?  /help""").format(sad=emoji['sadness']),
+Может попробуешь заново?  /help""").format(sad=emoji['sadness']),
                               parse_mode='HTML'
                               )
 
@@ -548,10 +603,18 @@ def get_text_messages(message: Message) -> None:
         message (Message): Принимает объект-сообщение от Telegram
     """
 
+    logger.info('Пользователь: {user_id}  | Сообщение: "{msg}"'.format(user_id=message.chat.id,
+                                                                       msg=message.text))
+
     if message.text.lower() == 'привет':
-        bot.send_message(message.chat.id, 'Привет! 👋\nПока я умею столько. Но меня продолжают кодить. 😉')
+        bot.send_message(chat_id=message.chat.id, text='Привет! 👋\nНужна помощь?  /help')
     else:
-        bot.send_message(message.chat.id, 'Я тебя не понял. 🤷\nПовтори, пожалуйста.')
+        bot.send_message(chat_id=message.chat.id,
+                         text="""
+Я тебя не понял. 🤷
+Может попробуешь заново?  /help
+Или введи команду\\."""
+                         )
 
 
 @bot.callback_query_handler(func=lambda call: call.message.text == 'Какую историю выводить?')
@@ -565,12 +628,16 @@ def create_history(call: CallbackQuery) -> None:
         call (CallbackQuery): Принимает объект-CallbackQuery от Telegram
     """
 
-    if call.data == 'history_last':
-        show_history(message=call.message, text='Последний поиск:', within='last')
-    elif call.data == 'history_day':
-        show_history(message=call.message, text='История за последний день:', within='day')
-    elif call.data == 'history_week':
-        show_history(message=call.message, text='История за последнюю неделю:', within='week')
+    logger.info('Пользователь: {user_id}  | Кнопка: "{btn}"'.format(user_id=call.message.chat.id,
+                                                                    btn=call.data))
+
+    match call.data:
+        case 'history_last':
+            show_history(message=call.message, text='Последний поиск:', within='last')
+        case 'history_day':
+            show_history(message=call.message, text='История за последний день:', within='day')
+        case 'history_week':
+            show_history(message=call.message, text='История за последнюю неделю:', within='week')
 
 
 @logger.catch
@@ -615,7 +682,7 @@ def show_history(message: Message, text: str, within: str) -> None:
                              )
     else:
         bot.send_message(chat_id=message.chat.id,
-                         text='За данный период поисков не было.\n\nХочешь продолжить?  /help')
+                         text='Поисков пока не было.\n\nХочешь продолжить?  /help')
 
 
 logger.info('Бот в работе')
