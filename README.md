@@ -1,121 +1,201 @@
-# <p align="center">Best Hotel Offers Bot
+<h1 align="center">Best Hotel Offers Bot
+
+[![bots_logo](./for README/bots_logo.png)](http://t.me/best_hotel_offers_bot)
+</h1>
+
 ___
 [comment]: <> (License: )
 
-Telegram-бот для анализа сайта [**Hotels.com**](https://ru.hotels.com/) и поиска подходящих пользователю отелей. <br>Бота можно найти под именем [@best_hotel_offers_bot](http://t.me/best_hotel_offers_bot).
+**[Telegram-бот](http://t.me/best_hotel_offers_bot) для анализа сайта [Hotels.com](https://ru.hotels.com/) 
+и поиска подходящих пользователю отелей.** 
 
-Для самостоятельного запуска бота вам потребуются:
+Бот, согласно определённым критериям и запросам пользователя, анализирует текущие предложения по отелям на платформе 
+[**Hotels.com**](https://hotels.com/) и выдаёт необходимый результат. Для этого бот использует открытый **API Hotels**, 
+который расположен на сайте [**rapidapi.com**](https://rapidapi.com/apidojo/api/hotels4/)
 
-- [Python](https://www.python.org/) 3.10 или выше (сам бот написан на 3.10.1)
-- Модуль [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI)
-- Модуль [python-dotenv](https://github.com/theskumar/python-dotenv)
-- Модуль [loguru](https://github.com/Delgan/loguru)
-- База данных sqlite3 (встроен в сам Python)
+Пользователь с помощью специальных команд бота может получить следующую информацию:
 
-## Установка
+- **/lowprice** - Выводит топ самых дешёвых отелей в выбранном городе. 
+- **/highprice** - Выводит топ самых дорогих отелей в выбранном городе. 
+- **/bestdeal** - Выводит топ отелей, наиболее подходящих по цене и расположению от центра выбранного города
+(т.е. самые дешёвые и которые находятся ближе всего к центру города). 
+- **/history** - Выводит историю поиска отелей. 
 
-- Создайте у себя файл `.env` (образец файла см. в `env.example`) 
-- Получите токен вашего бота от [@BotFather](http://telegram.me/BotFather) и добавьте его в файл `.env`.
-- Придумайте название вашей БД и добавьте его в файл `.env` (БД будет создана автоматически при первом запуске бота)
-- Установите необходимые библиотеки (рекомендуется использовать `virtualenv`): `pip install -r requirements.txt`
-
-Затем запустите бота из командной строки `python main.py`.
-
-
-## Работа с БД
-
-Чтобы полностью очистить БД, наберите в командной строке: `python bot_db.py --force`
-<br>Данная команда удаляет все таблицы из БД и затем создаёт их заново. 
-
-<br><br>Документация по коду в разработке, добавляется и редактируется по ходу работы над проектом.
-***
+Подробнее работа команд приводится далее.
+<br>Бота можно найти под именем [**@best_hotel_offers_bot**](http://t.me/best_hotel_offers_bot)
 ***
 
+## Первым делом
+Инструкции ниже помогут Вам установить копию проекта на Ваш локальный компьютер и запустить его для тестирования 
+или дальнейшей разработки.
 
-# Project Title
+### *Необходимые требования к установке*
+Для самостоятельного запуска бота на Вашем локальном компьютере необходимо предварительно скачать и установить 
+следующие программы и библиотеки:
 
-One Paragraph of project description goes here
+- [**Python**](https://www.python.org/) версии **3.10** или выше (сам бот написан на версии 3.10.1)
+- Библиотека [**pyTelegramBotAPI**](https://github.com/eternnoir/pyTelegramBotAPI) версии 4.4.0
+- Библиотека [**python-dotenv**](https://github.com/theskumar/python-dotenv) версии 0.20.0
+- Библиотека [**loguru**](https://github.com/Delgan/loguru) версии 0.6.0
+- Библиотека [**requests**](https://github.com/psf/requests) версии 2.27.1
+- Библиотека [**peewee**](https://github.com/coleifer/peewee) версии 3.14.10
 
-## Getting Started
+### *Установка*
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+- Скачайте и установите [**Python 3.10**](https://www.python.org/downloads/) или выше.
+- Создайте виртуальное окружение (рекомендуется использовать `virtualenv`).
+- Создайте на своем компьютере папку с названием проекта.
+- Склонируйте данный репозиторий в Вашу папку проекта `git clone https://github.com/...`
+- Создайте в ней файл `.env` (можете использовать файл `env.example` по инструкции ниже).
+- Создайте нового бота в **Telegram** у отца всех ботов [**@BotFather**](http://telegram.me/BotFather), 
+получите токен и добавьте его в файл `.env`.
+- Придумайте название Вашей БД и тоже добавьте его в файл `.env`.
+(БД будет создана автоматически при первом запуске бота).
+- Зарегистрируйтесь на сайте [**rapidapi.com**](https://rapidapi.com/), затем перейдите на документацию 
+[**Hotels API Documentation**](https://rapidapi.com/apidojo/api/hotels4/), нажмите на кнопку [**Subscribe to Test**], 
+выберите бесплатный пакет (**Basic**), получите хост и ключ доступа и их тоже добавьте в файл `.env`.
+- Наконец установите необходимые библиотеки: `pip install -r requirements.txt`
 
-### Prerequisites
-
-What things you need to install the software and how to install them
-
+### *Содержимое файла* `env.example`:
 ```
-Give examples
+EXECUTE_CMD = python <your bots file name>
+BOT_TOKEN = <your bots token>
+DATABASE = <your database file name>
+API_HOST = <your x-rapidapi-host>
+API_KEY = <your x-rapidapi-key>
 ```
+- Отредактируйте этот файл, добавьте нужные данные между угловых скобок **<your ...>** 
+(естественно, скобки нужно удалить)
+- Переименуйте имя файла с `env.example` на `.env`.
 
-### Installing
+### *Запуск и остановка бота*
+- Для запуска бота в папке с проектом откройте командную строку и наберите команду: `python main.py`.
+- Для остановки бота при активном окне командной строки нажмите **[Ctrl]+ C**
 
-A step by step series of examples that tell you how to get a development env running
 
-Say what the step will be
+### *Работа с базой данных (БД)*
 
-```
-Give the example
-```
+При первом запуске бота создаётся БД с заданным Вами именем и с необходимыми (пустыми) таблицами.
+<br>Если по каким-либо причинам этого не произошло, то в командной строке наберите: `python bot_db_pw.py --force`
+<br>Данная команда удаляет все таблицы из БД и затем создаёт их заново.
 
-And repeat
+**Внимание!** После этой команды из БД удаляются данные всех пользователей и их история поиска!!!
+***
 
-```
-until finished
-```
+## Описание работы команд
 
-End with an example of getting some data out of the system or using it for a little demo
+### *Команда /start* 
 
-## Running the tests
+При первом вводе команды бот приветствует пользователя, коротко представляется и затем выводит команду **/help**. 
+<br>При втором и последующих вводах команды бот предлагает начать заново и сразу выводит команду **/help**.
 
-Explain how to run the automated tests for this system
 
-### Break down into end to end tests
+### *Команда /help* 
 
-Explain what these tests test and why
+После ввода команды пользователю выводится список всех команд с кратким описанием каждой из них.
 
-```
-Give an example
-```
 
-### And coding style tests
+### *Команда /lowprice* 
 
-Explain what these tests test and why
+После ввода команды у пользователя запрашивается: 
+1. Город, где будет проводиться поиск.
+2. Дата заезда и выезда.
+3. Количество отелей, которые необходимо вывести (не более 10).
+4. Необходимость загрузки и вывода фотографий для каждого отеля (“Да/Нет”). 
+<br>4.1 При положительном ответе пользователь также вводит количество необходимых фотографий.
 
-```
-Give an example
-```
 
-## Deployment
+### *Команда /highprice*
 
-Add additional notes about how to deploy this on a live system
+После ввода команды у пользователя запрашивается: 
+1. Город, где будет проводиться поиск.
+2. Дата заезда и выезда.
+3. Количество отелей, которые необходимо вывести (не больше 10)
+4. Необходимость загрузки и вывода фотографий для каждого отеля (“Да/Нет”). 
+<br>4.1 При положительном ответе пользователь также вводит количество необходимых фотографий.
 
-## Built With
 
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
+### *Команда /bestdeal*
 
-## Contributing
+После ввода команды у пользователя запрашивается: 
+1. Город, где будет проводиться поиск.
+2. Дата заезда и выезда.
+3. Диапазон цен.
+4. Диапазон расстояния, на котором находится отель от центра города.
+5. Количество отелей, которые необходимо вывести (не больше 10)
+6. Необходимость загрузки и вывода фотографий для каждого отеля (“Да/Нет”). 
+<br>6.1 При положительном ответе пользователь также вводит количество необходимых фотографий.
 
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
 
-## Versioning
+### *Команда /history*
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
+После ввода команды у пользователя запрашивается период, за который нужно выводить историю 
+(**последний поиск, за последний день, за последний месяц**), затем пользователю выводится история поиска отелей.
+<br><br>Сама история содержит: 
+1. Дату и время ввода команды.
+2. Команду, которую вводил пользователь.
+3. Город, где проводился поиск (со ссылкой, содержащий полный поисковый запрос на сайт).
+4. Список найденных отелей (со ссылками на страницу каждого отеля).
 
-## Authors
 
-* **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
+### *Команда /reset* 
 
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+После ввода команды сбрасываются все параметры поиска пользователя и удаляется вся история его команд.
 
-## License
+***
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+## Описание внешнего вида и UI
+Окно Telegram-бота при запущенном Python-скрипте воспринимает следующие команды: 
+- /start - запуск сценария бота 
+- /help - помощь по командам бота 
+- /lowprice - вывод самых дешёвых отелей
+- /highprice - вывод самых дорогих отелей
+- /bestdeal — вывод отелей, наиболее подходящих по цене и расположению от центра
+- /history - вывод истории поиска отелей
+- /reset - сброс параметров и удаление истории поиска
 
-## Acknowledgments
+Для команд **/lowprice**, **/highprice** и **/bestdeal** сообщение с результатом содержит краткую информацию 
+по каждому отелю. В эту информацию входит: 
+- Фотографии отеля (если пользователь счёл необходимым их вывод)
+- Название отеля
+- Категория отеля
+- Адрес отеля (со ссылкой на Google Maps) 
+- Ближайшие ориентиры (в т.ч. как далеко расположен от центра)
+- Цена за одну ночь
+- Общая сумма за кол-во ночей
+- Ссылка на страницу отеля на Hotels.com
 
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
+В конце вывода всех отелей пользователю выводится ещё и ссылка с его параметрами запроса на страницу Hotels.com
+***
+
+## Скриншоты
+
+Пример вывода отеля в результате поиска:
+
+<p>
+
+<img src="./for README/hotel_view.png" width="30%">
+
+</p>
+
+<br><br>
+***
+
+## Благодарности
+
+Выражаю свою особую благодарность преподавателям и кураторам образовательной платформы 
+[**Skillbox**](https://sale.skillbox.ru/invite/?invite_hash=9a438762-b27c-4f8c-b51f-d04bdc36ced3&utm_source=invite_pr)
+за их наставничество.
+
+Также благодарю:
+- [**DePreto**](https://github.com/DePreto/tg_bot) - за некоторые идеи в реализации проекта
+- [**artembakhanov**](https://github.com/artembakhanov/python-telegram-bot-calendar) - за код календаря, 
+который используется в выборе дат заезда/выезда.
+***
+
+## Что же дальше?
+
+Далее планируется:
+- Добавить английский язык
+- Возможность выбора вылюты
+- Добавить **UI** для ввода переводов на др. языки
