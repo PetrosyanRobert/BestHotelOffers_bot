@@ -1,5 +1,5 @@
 <h1 align="center">Best Hotel Offers Bot
-<img src="./for README/bots_logo.png">
+<br><img src="./for README/bots_logo.png">
 </h1>
 
 ___
