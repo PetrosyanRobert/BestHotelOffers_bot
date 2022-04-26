@@ -42,7 +42,7 @@ def star_rating(rating: str) -> str:
         else:
             return emoji['star_b'] * int(rating) + emoji['star_w'] * (5 - int(rating))
     else:
-        return 'не указан'
+        return 'не указана'
 
 
 def night_declension(days: int) -> str:
