@@ -2,7 +2,7 @@
 
 </h1>
 
-<img src="./for README/bots_logo.png" width="30%">
+<img src="./for README/bots_logo.png">
 
 ___
 [comment]: <> (License: )
