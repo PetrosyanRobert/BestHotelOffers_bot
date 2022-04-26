@@ -3,10 +3,9 @@
 для команд /lowprice, /highprice, /bestdeal.
 """
 
-from datetime import date
 import json
 import re
-from typing import Callable, Any
+from typing import Callable
 
 from loguru import logger
 import requests
@@ -49,25 +48,21 @@ def search_location(message: Message) -> dict:
 
     response = requests.request("GET", city_url, headers=headers, params=querystring, timeout=10)
 
-    # TODO Добавить проверку статус кода 200 OK и получения JSON данных
-    # if response.status_code == 200:
-    #     pass
-    # else:
-    #     raise Exception()
+    if response.status_code == requests.codes.ok:
+        check = re.search(r'(?<=\"CITY_GROUP\",).+?]', response.text)
 
-    # или же так:
+        if check:
+            data = json.loads(response.text)
 
-    # match response.status_code:
-    #     case 200:
-    #         pass
-    #     case ???
+            cities = {', '.join((city['name'],
+                                 re.findall('(\\w+)[\n<]', city['caption'] + '\n')[-1])): city['destinationId']
+                      for city in data['suggestions'][0]['entities']}
 
-    data = json.loads(response.text)
-
-    cities = {', '.join((city['name'], re.findall('(\\w+)[\n<]', city['caption'] + '\n')[-1])): city['destinationId']
-              for city in data['suggestions'][0]['entities']}
-
-    return cities
+            return cities
+        else:
+            raise ValueError('Ошибка сервера! В JSON ключи не обнаружены.')
+    else:
+        raise ValueError('Ошибка сервера! Статус код не "200 ОК".')
 
 
 @logger.catch
@@ -128,9 +123,15 @@ def search_photos(data: dict, hotel_id: int) -> list:
 
     response = requests.request("GET", photo_url, headers=headers, params=querystring, timeout=10)
 
-    # TODO Добавить проверку статус кода 200 OK и получения JSON данных
+    if response.status_code == requests.codes.ok:
+        check = re.search(r'(?<=,)\"hotelImages\".+?]', response.text)
 
-    photo_data = json.loads(response.text)
-    photos_address = photo_data["hotelImages"][:data['photos_count']]
+        if check:
+            photo_data = json.loads(response.text)
+            photos_address = photo_data["hotelImages"][:data['photos_count']]
 
-    return photos_address
+            return photos_address
+        else:
+            raise ValueError('Ошибка сервера! В JSON ключи не обнаружены.')
+    else:
+        raise ValueError('Ошибка сервера! Статус код не "200 ОК".')

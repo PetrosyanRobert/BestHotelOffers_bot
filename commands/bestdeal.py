@@ -48,35 +48,40 @@ def bestdeal(**ud) -> tuple:
     found_hotels = list()
 
     while len(found_hotels) < ud['hotels_count']:
-        try:
-            response = requests.request("GET", ud['hotel_url'], headers=ud['headers'], params=querystring, timeout=10)
+        response = requests.request("GET", ud['hotel_url'], headers=ud['headers'], params=querystring, timeout=10)
 
-            data = json.loads(response.text)
-            hotels_catalog = data['data']['body']['searchResults']['results']
+        if response.status_code == requests.codes.ok:
+            check = re.search(r'(?<=,)\"results\".+?(?=,\"pagination)', response.text)
 
-            if not hotels_catalog:
-                return None, None
+            if check:
+                data = json.loads(response.text)
+                hotels_catalog = data['data']['body']['searchResults']['results']
 
-            for hotel in hotels_catalog:
-                distance = re.findall(r'\d[,.]?\d', hotel['landmarks'][0]['distance'])[0].replace(',', '.')
+                if not hotels_catalog:
+                    return None, None
 
-                if float(distance) > float(max(json.loads(ud['dist_range']))):
-                    raise ValueError('Превышено максимальное расстояние от центра города')
-                elif float(distance) > float(min(json.loads(ud['dist_range']))):
-                    found_hotels.append(hotel)
+                for hotel in hotels_catalog:
+                    distance = re.findall(r'\d[,.]?\d', hotel['landmarks'][0]['distance'])[0].replace(',', '.')
 
-            querystring['pageNumber'] = str(int(querystring.get('pageNumber')) + 1)
+                    if float(distance) > float(max(json.loads(ud['dist_range']))):
+                        raise ValueError('Превышено максимальное расстояние от центра города')
+                    elif float(distance) > float(min(json.loads(ud['dist_range']))):
+                        found_hotels.append(hotel)
 
-        except ValueError:
-            break
+                querystring['pageNumber'] = str(int(querystring.get('pageNumber')) + 1)
 
-    hotels_glossary = {
-        hotel['name']: {
-            'id': hotel['id'], 'name': hotel['name'], 'stars': hotel['starRating'], 'address': hotel['address'],
-            'landmarks': hotel['landmarks'], 'price': hotel['ratePlan']['price'].get('current')
-            if hotel.get('ratePlan', None)
-            else '-', 'coordinate': '+'.join(map(str, hotel['coordinate'].values()))
-        } for hotel in found_hotels
-    }
+                hotels_glossary = {
+                    hotel['name']: {
+                        'id': hotel['id'], 'name': hotel['name'], 'stars': hotel['starRating'],
+                        'address': hotel['address'], 'landmarks': hotel['landmarks'],
+                        'price': hotel['ratePlan']['price'].get('current')
+                        if hotel.get('ratePlan', None)
+                        else '-', 'coordinate': '+'.join(map(str, hotel['coordinate'].values()))
+                    } for hotel in found_hotels
+                }
 
-    return hotels_glossary, url
+                return hotels_glossary, url
+            else:
+                raise ValueError('Ошибка сервера! В JSON ключи не обнаружены.')
+        else:
+            raise ValueError('Ошибка сервера! Статус код не "200 ОК".')

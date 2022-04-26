@@ -1,5 +1,7 @@
 __all__ = [
-    'hilowprice',
     'bestdeal',
-    'history'
+    'calendar',
+    'hilowprice',
+    'history',
+    'recurring'
 ]
