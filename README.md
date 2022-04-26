@@ -1,7 +1,8 @@
 <h1 align="center">Best Hotel Offers Bot
 
-[![bots_logo](./for README/bots_logo.png)](http://t.me/best_hotel_offers_bot)
 </h1>
+
+<img src="./for README/bots_logo.png" width="30%">
 
 ___
 [comment]: <> (License: )
